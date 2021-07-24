@@ -1,0 +1,24 @@
+- name: install psycopg2
+  ansible.builtin.apt:
+    state: present
+    name: python3-psycopg2
+  become: true
+
+- name: install postgresql
+  ansible.builtin.apt:
+    state: present
+    name: postgresql
+  become: true
+
+- name: start and enable postgresql
+  ansible.builtin.systemd:
+    name: postgresql
+    state: started
+    enabled: true
+  become: true
+
+- name: create awx database
+  community.postgresql.postgresql_db:
+    name: awx
+  become: true
+  become_user: postgres

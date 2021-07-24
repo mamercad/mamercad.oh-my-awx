@@ -1,0 +1,59 @@
+- name: download k3s release
+  ansible.builtin.get_url:
+    url: https://github.com/k3s-io/k3s/releases/download/v1.21.2%2Bk3s1/k3s
+    checksum: sha256:5097d515e220f8e97ab13c56cb9142ee4526b4c9eade5ed098e2906c1db2a163
+    dest: /tmp/k3s
+
+- name: mv /tmp/k3s /usr/local/bin/k3s
+  ansible.builtin.copy:
+    src: /tmp/k3s
+    remote_src: true
+    dest: /usr/local/bin/k3s
+    owner: root
+    group: root
+    mode: 0755
+  become: true
+
+- name: deploy k3s systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/k3s.service
+    owner: root
+    group: root
+    mode: 0644
+    content: |
+      [Unit]
+      Description=Lightweight Kubernetes
+      Documentation=https://k3s.io
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=notify
+      EnvironmentFile=-/etc/default/%N
+      EnvironmentFile=-/etc/sysconfig/%N
+      EnvironmentFile=-/etc/systemd/system/k3s.service.env
+      ExecStartPre=/bin/sh -xc '! /usr/bin/systemctl is-enabled --quiet nm-cloud-setup.service'
+      ExecStart=/usr/local/bin/k3s server --write-kubeconfig-mode "0644"
+      KillMode=process
+      Delegate=yes
+      # Having non-zero Limit*s causes performance problems due to accounting overhead
+      # in the kernel. We recommend using cgroups to do container-local accounting.
+      LimitNOFILE=1048576
+      LimitNPROC=infinity
+      LimitCORE=infinity
+      TasksMax=infinity
+      TimeoutStartSec=0
+      Restart=always
+      RestartSec=5s
+
+      [Install]
+      WantedBy=multi-user.target
+  become: true
+
+- name: start and enable k3s
+  ansible.builtin.systemd:
+    name: k3s
+    daemon_reload: true
+    state: started
+    enabled: true
+  become: true
