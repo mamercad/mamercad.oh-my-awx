@@ -50,3 +50,102 @@
     - service2
     - service3
     - ingress
+
+- name: deploy awx management pod
+  community.kubernetes.k8s:
+    state: present
+    kubeconfig: "{{ kubeconfig }}"
+    definition: "{{ lookup('ansible.builtin.template', versions.awx ~ '/' ~ item ~ '.yml.j2') | from_yaml }}"
+    validate:
+      fail_on_error: true
+      strict: true
+  loop:
+    - management-pod
+  when: migrate | default(false, true)
+
+- name: wait for the management pod to start
+  ansible.builtin.shell: |
+    {{ kubectl_or_oc }} --context {{ kubernetes_context }} --namespace {{ kubernetes_namespace }} \
+      get pod ansible-tower-management -o jsonpath="{.status.phase}"
+  environment:
+    KUBECONFIG: "{{ kubeconfig }}"
+  register: result
+  until: result.stdout == "Running"
+  retries: 60
+  delay: 10
+  when: migrate | default(false, true)
+
+- name: do the database migrations
+  ansible.builtin.shell: |
+    {{ kubectl_or_oc }} --context {{ kubernetes_context }} --namespace {{ kubernetes_namespace }} \
+      exec ansible-tower-management -- \
+        bash -c "awx-manage migrate --noinput"
+  environment:
+    KUBECONFIG: "{{ kubeconfig }}"
+  when: migrate | default(false, true)
+
+- name: check for tower super users
+  ansible.builtin.shell: |
+    {{ kubectl_or_oc }} --context {{ kubernetes_context }} --namespace {{ kubernetes_namespace }} \
+      exec ansible-tower-management -- \
+        bash -c "echo 'from django.contrib.auth.models import User; nsu = User.objects.filter(is_superuser=True).count(); exit(0 if nsu > 0 else 1)' | awx-manage shell"
+  environment:
+    KUBECONFIG: "{{ kubeconfig }}"
+  register: super_check
+  ignore_errors: true
+  changed_when: super_check.rc > 0
+  when: migrate | default(false, true)
+
+- name: create django super user if it does not exist
+  ansible.builtin.shell: |
+    {{ kubectl_or_oc }} --context {{ kubernetes_context }} --namespace {{ kubernetes_namespace }} \
+      exec ansible-tower-management -- \
+        bash -c "echo \"from django.contrib.auth.models import User; User.objects.create_superuser('{{ admin_user }}', '{{ admin_email }}', '{{ admin_password }}')\" | awx-manage shell"
+  environment:
+    KUBECONFIG: "{{ kubeconfig }}"
+  no_log: true
+  when:
+    - migrate | default(false, true)
+    - super_check.rc > 0
+
+- name: update django super user password
+  ansible.builtin.shell: |
+    {{ kubectl_or_oc }} --context {{ kubernetes_context }} --namespace {{ kubernetes_namespace }} \
+      exec ansible-tower-management -- \
+        bash -c "awx-manage update_password --username='{{ admin_user }}' --password='{{ admin_password }}'"
+  environment:
+    KUBECONFIG: "{{ kubeconfig }}"
+  no_log: true
+  register: result
+  changed_when: "'Password updated' in result.stdout"
+  when:
+    - migrate | default(false, true)
+
+- name: create the default organization
+  ansible.builtin.shell: |
+    {{ kubectl_or_oc }} --context {{ kubernetes_context }} --namespace {{ kubernetes_namespace }} \
+      exec ansible-tower-management -- \
+        bash -c "awx-manage create_preload_data"
+  environment:
+    KUBECONFIG: "{{ kubeconfig }}"
+  register: cdo
+  changed_when: "'added' in cdo.stdout"
+  when:
+    - create_preload_data | default(false, true)
+    - migrate | default(false, true)
+
+- name: delete the management pod
+  ansible.builtin.shell: |
+    {{ kubectl_or_oc }} --context {{ kubernetes_context }} --namespace {{ kubernetes_namespace }} \
+      delete pod ansible-tower-management --grace-period=0 --ignore-not-found
+  environment:
+    KUBECONFIG: "{{ kubeconfig }}"
+
+- name: scale up the awx deployment
+  ansible.builtin.shell: |
+    {{ kubectl_or_oc }} --context {{ kubernetes_context }} --namespace {{ kubernetes_namespace }} \
+      scale {{ deployment_object }} {{ kubernetes_deployment_name }} --replicas=0
+    {{ kubectl_or_oc }} --context {{ kubernetes_context }} --namespace {{ kubernetes_namespace }} \
+      scale {{ deployment_object }} {{ kubernetes_deployment_name }} --replicas={{ replicas | default(kubernetes_deployment_replica_size) }}
+  environment:
+    KUBECONFIG: "{{ kubeconfig }}"
