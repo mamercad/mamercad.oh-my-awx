@@ -1,0 +1,31 @@
+---
+
+- name: k3s
+  hosts: k3s
+  gather_facts: true
+  become: false
+  tasks:
+    - name: k3s
+      ansible.builtin.include_role:
+        name: k3s
+        tasks_from: main.yml
+
+- name: postgres
+  hosts: postgres
+  gather_facts: true
+  become: false
+  tasks:
+    - name: postgres
+      ansible.builtin.include_role:
+        name: postgres
+        tasks_from: main.yml
+
+- name: awx
+  hosts: k3s
+  gather_facts: false
+  become: false
+  tasks:
+    - name: awx
+      ansible.builtin.include_role:
+        name: awx
+        tasks_from: main.yml
