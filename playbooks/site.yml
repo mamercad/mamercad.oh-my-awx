@@ -1,5 +1,13 @@
 ---
 
+- name: facts
+  hosts: all
+  gather_facts: true
+  become: false
+  tasks:
+    - name: setup
+      ansible.builtin.setup:
+
 - name: k3s
   hosts: k3s
   gather_facts: true
