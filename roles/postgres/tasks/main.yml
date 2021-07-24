@@ -19,6 +19,37 @@
 
 - name: create awx database
   community.postgresql.postgresql_db:
+    state: present
     name: awx
   become: true
   become_user: postgres
+
+- name: create awx user
+  community.postgresql.postgresql_user:
+    state: present
+    db: awx
+    name: awx
+    password: "{{ pg_password }}"
+    priv: ALL
+  become: true
+  become_user: postgres
+
+- name: grant awx pb_hba
+  community.postgresql.postgresql_pg_hba:
+    dest: /etc/postgresql/{{ versions.postgres }}/main/pg_hba.conf
+    contype: host
+    users: awx
+    source: "{{ hostvars['app1']['ansible_default_ipv4']['address'] ~ '/32' }}"
+    databases: awx
+    method: md5
+  become: true
+  become_user: postgres
+  notify: reload postgres
+
+- name: listen on all addresses
+  community.postgresql.postgresql_set:
+    name: listen_addresses
+    value: '*'
+  become: true
+  become_user: postgres
+  notify: restart postgres
