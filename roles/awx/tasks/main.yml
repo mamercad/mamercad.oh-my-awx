@@ -13,6 +13,13 @@
       - kubernetes-validate
   become: true
 
+- name: install kubectl
+  community.general.snap:
+    state: present
+    name: kubectl
+    classic: true
+  become: true
+
 - name: create awx namespace
   community.kubernetes.k8s:
     state: present
