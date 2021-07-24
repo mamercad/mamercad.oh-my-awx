@@ -15,8 +15,8 @@
 
 - name: create awx namespace
   community.kubernetes.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
+    kubeconfig: "{{ kubeconfig }}"
     name: "{{ kubernetes_namespace }}"
     api_version: v1
     kind: Namespace
@@ -24,11 +24,22 @@
 
 - name: deploy awx manifests
   community.kubernetes.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
+    kubeconfig: "{{ kubeconfig }}"
     definition: "{{ lookup('ansible.builtin.template', versions.awx ~ '/' ~ item ~ '.yml.j2') | from_yaml }}"
     validate:
       fail_on_error: true
       strict: true
   loop:
     - configmap
+    - secret
+    - serviceaccount
+    - service
+    - configmap2
+    - role
+    - rolebinding
+    - statefulset
+    - configmap3
+    - service2
+    - service3
+    - ingress
