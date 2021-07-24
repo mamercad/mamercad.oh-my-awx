@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ kubernetes_deployment_name }}-rmq-mgmt
+  namespace: {{ kubernetes_namespace }}
+  labels:
+    name: {{ kubernetes_deployment_name }}-rmq-mgmt
+spec:
+  type: ClusterIP
+  ports:
+    - name: rmqmgmt
+      port: 15672
+      targetPort: 15672
+  selector:
+    name: {{ kubernetes_deployment_name }}-web-deploy

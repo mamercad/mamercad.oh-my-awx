@@ -1,0 +1,47 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: {{ kubernetes_namespace }}
+data:
+  enabled_plugins: |
+      [rabbitmq_management,rabbitmq_peer_discovery_k8s].
+  rabbitmq_definitions.json: |
+      {
+        "users":[{"name": "{{ rabbitmq_user }}", "password": "{{ rabbitmq_password }}", "tags": "administrator"}],
+        "permissions":[
+          {"user":"{{ rabbitmq_user }}","vhost":"awx","configure":".*","write":".*","read":".*"}
+        ],
+        "vhosts":[{"name":"awx"}],
+        "policies":[
+            {"vhost":"awx","name":"ha-all","pattern":".*","definition":{"ha-mode":"all","ha-sync-mode":"automatic"}}
+        ]
+      }
+  rabbitmq.conf: |
+      ## Clustering
+      management.load_definitions = /etc/rabbitmq/rabbitmq_definitions.json
+      cluster_formation.peer_discovery_backend  = rabbit_peer_discovery_k8s
+      cluster_formation.k8s.host = kubernetes.default.svc
+      cluster_formation.k8s.address_type = ip
+      cluster_formation.node_cleanup.interval = 10
+      cluster_formation.node_cleanup.only_log_warning = false
+      cluster_partition_handling = autoheal
+      ## queue master locator
+      queue_master_locator=min-masters
+      ## enable guest user
+      loopback_users.guest = false
+{% if rabbitmq_use_ssl|default(False)|bool %}
+      ssl_options.cacertfile=/etc/pki/rabbitmq/ca.crt
+      ssl_options.certfile=/etc/pki/rabbitmq/server-combined.pem
+      ssl_options.verify=verify_peer
+{% endif %}
+  rabbitmq-env.conf: |
+      NODENAME=${RABBITMQ_NODENAME}
+      USE_LONGNAME=true
+{% if rabbitmq_use_ssl|default(False)|bool %}
+      ERL_SSL_PATH=$(erl -eval 'io:format("~p", [code:lib_dir(ssl, ebin)]),halt().' -noshell)
+      SSL_ADDITIONAL_ERL_ARGS="-pa '$ERL_SSL_PATH' -proto_dist inet_tls -ssl_dist_opt server_certfile /etc/pki/rabbitmq/server-combined.pem -ssl_dist_opt server_secure_renegotiate true client_secure_renegotiate true"
+      SERVER_ADDITIONAL_ERL_ARGS="$SERVER_ADDITIONAL_ERL_ARGS $SSL_ADDITIONAL_ERL_ARGS"
+      CTL_ERL_ARGS="$SSL_ADDITIONAL_ERL_ARGS"
+{% endif %}
