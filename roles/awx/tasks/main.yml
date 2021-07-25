@@ -37,19 +37,7 @@
     validate:
       fail_on_error: true
       strict: true
-  loop:
-    - configmap
-    - secret
-    - serviceaccount
-    - service
-    - configmap2
-    - role
-    - rolebinding
-    - statefulset
-    - configmap3
-    - service2
-    - service3
-    - ingress
+  loop: "{{ manifests[versions.awx] }}"
 
 - name: deploy awx management pod
   community.kubernetes.k8s:
@@ -61,7 +49,6 @@
       strict: true
   loop:
     - management-pod
-  when: migrate | default(false, true)
 
 - name: wait for the management pod to start
   ansible.builtin.shell: |
