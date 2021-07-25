@@ -1,0 +1,9 @@
+- name: give ubuntu passwordless sudo
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/ubuntu
+    content: |
+      ubuntu ALL=(ALL) NOPASSWD:ALL
+    owner: root
+    group: root
+    mode: 0440
+  become: true
