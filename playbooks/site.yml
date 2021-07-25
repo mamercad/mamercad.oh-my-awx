@@ -7,6 +7,18 @@
   tasks:
     - name: setup
       ansible.builtin.setup:
+- name: ubuntu
+  hosts: ubuntu
+  gather_facts: true
+  become: false
+  tasks:
+    - name: ubuntu
+      ansible.builtin.include_role:
+        name: ubuntu
+        tasks_from: main.yml
+        apply:
+          tags: ['ubuntu']
+      tags: ['ubuntu']
 
 - name: k3s
   hosts: k3s
