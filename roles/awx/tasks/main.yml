@@ -131,8 +131,8 @@
 - name: scale up the awx deployment
   ansible.builtin.shell: |
     {{ kubectl_or_oc }} --context {{ kubernetes_context }} --namespace {{ kubernetes_namespace }} \
-      scale {{ deployment_object }} {{ kubernetes_deployment_name }} --replicas=0
+      scale {{ deployment_object[versions.awx] }} {{ kubernetes_deployment_name }} --replicas=0
     {{ kubectl_or_oc }} --context {{ kubernetes_context }} --namespace {{ kubernetes_namespace }} \
-      scale {{ deployment_object }} {{ kubernetes_deployment_name }} --replicas={{ replicas | default(kubernetes_deployment_replica_size) }}
+      scale {{ deployment_object[versions.awx] }} {{ kubernetes_deployment_name }} --replicas={{ replicas | default(kubernetes_deployment_replica_size) }}
   environment:
     KUBECONFIG: "{{ kubeconfig }}"
