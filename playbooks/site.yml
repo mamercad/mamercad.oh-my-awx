@@ -7,6 +7,8 @@
   tasks:
     - name: setup
       ansible.builtin.setup:
+      tags: ['always']
+
 - name: ubuntu
   hosts: ubuntu
   gather_facts: true
@@ -39,7 +41,9 @@
       ansible.builtin.include_role:
         name: postgres
         tasks_from: main.yml
-
+        apply:
+          tags: ['postgres']
+      tags: ['postgres']
 - name: awx
   hosts: k3s
   gather_facts: false
@@ -49,3 +53,6 @@
       ansible.builtin.include_role:
         name: awx
         tasks_from: main.yml
+        apply:
+          tags: ['awx']
+      tags: ['awx']
