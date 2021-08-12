@@ -1,11 +1,19 @@
 - name: reload postgres
-  ansible.builtin.systemd:
-    name: postgresql
-    state: reloaded
+  # ansible.builtin.systemd:
+  #   name: postgresql
+  #   state: reloaded
+  ansible.builtin.shell:
+    cmd: |
+      pg_ctlcluster {{ versions.postgres }} main stop --force
+      pg_ctlcluster {{ versions.postgres }} main start
   become: true
 
 - name: restart postgres
-  ansible.builtin.systemd:
-    name: postgresql
-    state: restarted
+  # ansible.builtin.systemd:
+  #   name: postgresql
+  #   state: restarted
+  ansible.builtin.shell:
+    cmd: |
+      pg_ctlcluster {{ versions.postgres }} main stop --force
+      pg_ctlcluster {{ versions.postgres }} main start
   become: true
