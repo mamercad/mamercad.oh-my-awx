@@ -10,6 +10,32 @@
     name: postgresql
   become: true
 
+- name: install libjson-perl (for pg_lsclusters json output)
+  ansible.builtin.apt:
+    state: present
+    name: libjson-perl
+  become: true
+
+- name: see if we have a cluster
+  ansible.builtin.command: pg_lsclusters --json
+  register: pg_lsclusters
+
+- name: create cluster if necessary
+  ansible.builtin.command: pg_createcluster {{ versions.postgres }} main
+  register: pg_createcluster
+  when: pg_lsclusters.stdout | from_json | length == 0
+  become: true
+  become_user: postgres
+
+- name: start the new cluster if necessary
+  ansible.builtin.command: pg_ctlcluster {{ versions.postgres }} main start
+  register: pg_ctlcluster
+  when:
+    - pg_createcluster is defined
+    - pg_createcluster is changed
+  become: true
+  become_user: postgres
+
 - name: start and enable postgresql
   ansible.builtin.systemd:
     name: postgresql
