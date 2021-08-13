@@ -57,3 +57,16 @@
         apply:
           tags: ['awx']
       tags: ['awx']
+
+- name: traefik
+  hosts: lb
+  gather_facts: false
+  become: false
+  tasks:
+    - name: traefik
+      ansible.builtin.include_role:
+        name: traefik
+        tasks_from: main.yml
+        apply:
+          tags: ['traefik']
+      tags: ['traefik']
