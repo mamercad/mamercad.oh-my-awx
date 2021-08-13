@@ -1,0 +1,115 @@
+- name: download traefik release and verify checksum
+  ansible.builtin.get_url:
+    url: "{{ traefik.url }}"
+    checksum: "{{ traefik.checksum }}"
+    dest: /tmp/
+  register: traefik_archive
+  become: true
+
+- name: install traefik to /usr/local/bin
+  ansible.builtin.unarchive:
+    src: "{{ traefik_archive.dest }}"
+    remote_src: true
+    dest: /usr/local/bin
+    owner: root
+    group: root
+    mode: 0755
+  become: true
+
+- name: create traefik group
+  ansible.builtin.group:
+    state: present
+    name: traefik
+  become: true
+
+- name: create traefik user
+  ansible.builtin.user:
+    state: present
+    name: traefik
+    group: traefik
+    create_home: false
+    shell: /sbin/nologin
+  become: true
+
+# Source: https://github.com/traefik/traefik/blob/master/contrib/systemd/traefik.service
+- name: deploy traefik systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/traefik.service
+    owner: root
+    group: root
+    mode: 0644
+    content: |
+      [Unit]
+      Description=Traefik
+      Documentation=https://doc.traefik.io/traefik/
+      After=network-online.target
+      AssertFileIsExecutable=/usr/local/bin/traefik
+      AssertPathExists=/usr/local/etc/traefik.yml
+      AssertPathExists=/usr/local/etc/traefik_dynamic.yml
+      [Service]
+      User=traefik
+      AmbientCapabilities=CAP_NET_BIND_SERVICE
+      Type=notify
+      ExecStart=/usr/local/bin/traefik --configFile=/usr/local/etc/traefik.yml
+      Restart=always
+      WatchdogSec=1s
+      [Install]
+      WantedBy=multi-user.target
+  become: true
+  notify: reload systemd
+
+- name: deploy traefik static configuration
+  ansible.builtin.copy:
+    dest: /usr/local/etc/traefik.yml
+    owner: root
+    group: root
+    mode: 0644
+    content: |
+      log_level: INFO
+      api:
+        dashboard: true
+      metrics:
+        prometheus:
+          entryPoint: metrics
+      entryPoints:
+        http:
+          address: ":80"
+        https:
+          address: ":443"
+        api:
+          address: ":8080"
+        metrics:
+          address: ":8082"
+      providers:
+        file:
+          filename: /usr/local/etc/traefik_dynamic.yml
+  become: true
+  notify: restart traefik
+
+- name: deploy traefik dynamic configuration
+  ansible.builtin.copy:
+    dest: /usr/local/etc/traefik_dynamic.yml
+    owner: root
+    group: root
+    mode: 0644
+    content: |
+      http:
+        routers:
+          api:
+            rule: Host(`{{ ansible_fqdn }}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
+            service: "api@internal"
+          metrics:
+            rule: Host(`{{ ansible_fqdn }}`)
+            service: "prometheus@internal"
+          awx-http:
+            rule: Host(`{{ traefik.awx_host }}`)
+            service: awx
+  become: true
+  notify: restart traefik
+
+- name: start and enable traefik
+  ansible.builtin.systemd:
+    name: traefik
+    state: started
+    enabled: true
+  become: true
