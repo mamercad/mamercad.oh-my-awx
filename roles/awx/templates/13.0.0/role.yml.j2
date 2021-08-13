@@ -1,0 +1,15 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: {{ kubernetes_namespace }}
+  name: {{ awx_psp_name }}-role
+rules:
+- apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  resourceNames:
+  - {{ awx_psp_name }}-psp
+  verbs:
+  - use
