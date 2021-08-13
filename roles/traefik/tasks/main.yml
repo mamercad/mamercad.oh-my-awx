@@ -104,6 +104,10 @@
           awx-http:
             rule: Host(`{{ traefik.awx_host }}`)
             service: awx
+      services:
+        awx:
+          loadBalancer:
+            servers: {{ traefik_settings.awx_servers }}
   become: true
   notify: restart traefik
 

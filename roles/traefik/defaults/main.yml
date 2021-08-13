@@ -2,3 +2,4 @@ traefik:
   url: https://github.com/traefik/traefik/releases/download/v2.4.11/traefik_v2.4.11_linux_amd64.tar.gz
   checksum: sha256:a1c65d7d7a00b7883eeeb39ef8251edd010f4bcfa672fc941967bab4c4270544
   awx_host: awx.example.com
+  awx_servers: 192.168.1.xxx
